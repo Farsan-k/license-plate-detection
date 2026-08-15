@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+uploads/
+output/
+videos/
+.git/
+.gitignore
+.idea/
+*.md

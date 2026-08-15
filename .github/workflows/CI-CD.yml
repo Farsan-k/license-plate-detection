@@ -1,0 +1,70 @@
+name: Build and Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-north-1
+  ECR_REPOSITORY: plate-api
+  CONTAINER_NAME: plate-api
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.build.outputs.image_uri }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        id: build
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2 over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+              sudo docker login --username AWS --password-stdin ${{ needs.build-and-push.outputs.image_uri }}
+
+            sudo docker pull ${{ needs.build-and-push.outputs.image_uri }}
+
+            sudo docker stop ${{ env.CONTAINER_NAME }} || true
+            sudo docker rm ${{ env.CONTAINER_NAME }} || true
+
+            sudo docker run -d \
+              -p 8000:8000 \
+              --restart unless-stopped \
+              --name ${{ env.CONTAINER_NAME }} \
+              ${{ needs.build-and-push.outputs.image_uri }}
+
+            sudo docker image prune -f
