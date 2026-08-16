@@ -21,11 +21,6 @@ def is_valid_plate(text):
 
 
 def preprocess_plate(plate_crop):
-    """Light preprocessing only — fast-plate-ocr expects a fairly
-    clean, color (3-channel) crop close to the original plate, and
-    handles its own internal resizing, so we avoid the heavy
-    multi-threshold grayscale pipeline that was mainly compensating
-    for EasyOCR's weaknesses."""
 
     h, w = plate_crop.shape[:2]
 

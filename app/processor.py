@@ -106,14 +106,7 @@ def process_frame(model, frame, frame_count, width, height):
 
 
 def run(input_video, out_video, weights_path, show_preview=True):
-    """
-    show_preview=False must be used when calling this from a server
-    (e.g. the FastAPI app) since there is no display available there
-    and cv2.imshow/waitKey would error out or hang.
-    """
 
-    # Track IDs are only unique within a single video, so state from a
-    # previous run (e.g. a previous API request) must not leak into this one.
     reset_history()
 
     model = YOLO(weights_path)

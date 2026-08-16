@@ -8,10 +8,6 @@ plate_final = {}
 
 
 def reset_history():
-    """Clear all tracked plate state. Must be called before processing a
-    new video (e.g. a new API request) since YOLO track IDs restart from
-    scratch each run and would otherwise collide with leftover state from
-    a previous video."""
     plate_history.clear()
     plate_final.clear()
 
